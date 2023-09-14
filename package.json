@@ -1,0 +1,14 @@
+{
+  "name": "csv-builder",
+  "version": "1.0.0",
+  "description": "build csv file from csp config",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "npm config set ca=\"\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "csv-stringify": "^6.4.2"
+  }
+}
