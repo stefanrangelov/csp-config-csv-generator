@@ -1,6 +1,6 @@
 const csv = require("csv-stringify");
 const https = require('https');
-const conf = require('../config/config');
+const { ENVS, ENDPOINTS } = require('../config/config');
 const fs = require("fs")
 const Promise = require('bluebird');
 
@@ -8,10 +8,14 @@ let csvFile = [
   ['Pricing Zone', 'Competition Group']
 ]
 
-let host = conf.ENVS['qacore']
+let csvFile2 = [
+  ['Pricing Zone']
+]
 
-const getPricingZones = () => executeRequest(`https://${host}/fmu/retrieve-dimension-groups/brand/ps/pricing-zones`)
-const getCompetitionGroups = (id) => executeRequest(`https://${host}/fmu/retrieve-dimension-groups/brand/ps/pricing-zones/${id}/competition-groups`)
+let host = ENVS['qacore']
+
+const getPricingZones = () => executeRequest(`${host}${ENDPOINTS.RETRIEVE_PRICING_ZONES}`)
+const getCompetitionGroups = (id) => executeRequest(`${host}${ENDPOINTS.RETRIEVE_PRICING_ZONES}/${id}/competition-groups`)
 // margines()
 //   .then(res => {
 //     res = JSON.parse(res)
@@ -30,6 +34,7 @@ const getCompetitionGroups = (id) => executeRequest(`https://${host}/fmu/retriev
 //     console.log(counter)
 //   })
 
+// createCsvFile2()
 createCsvFile()
 
 function margines() {
@@ -60,11 +65,12 @@ function margines() {
         return reject(new Error(`HTTP status code ${res.statusCode}`))
       }
 
-      const body = []
-      res.on('data', (chunk) => body.push(chunk))
+      let body = ""
+      res.on('data', (chunk) => {
+        body += (chunk)
+      })
       res.on('end', () => {
-        const resString = Buffer.concat(body).toString()
-        resolve(resString)
+        resolve(JSON.parse(body))
       })
     })
 
@@ -82,10 +88,29 @@ function margines() {
   })
 }
 
+function createCsvFile2(){
+  getPricingZones().then(res => {
+    res.data.forEach(pricingZone => {
+
+      let pricingZoneName = pricingZone.description
+      let countries = pricingZone.countries.map(e => e.iso2Code).join(", ")
+      let pricingZoneOutput = `${pricingZoneName} (${countries})`
+
+      csvFile2.push([pricingZoneOutput])
+     
+  })
+  csv.stringify(csvFile2, (err, output) => {
+    fs.writeFileSync("../generatedFiles/csp.csv", output);
+    console.log("OK.");
+  });
+})
+}
+
 function createCsvFile() {
   // return the response
   getPricingZones().then(res => {
     let pricingZones = res.data
+    pricingZones = [pricingZones[1]]
 
     Promise.map(pricingZones, function (pricingZone) {
       // Promise.map awaits for returned promises as well.
@@ -114,7 +139,6 @@ function createCsvFile() {
           let competitionGroupOutput = `${competitionGroupName} \n( ${map})`
           csvFile.push([pricingZoneOutput, competitionGroupOutput])
         })
-
       })
     })
       .catch(err => {
@@ -123,7 +147,7 @@ function createCsvFile() {
       .finally(() => {
         csv.stringify(csvFile, (err, output) => {
           fs.writeFileSync("../generatedFiles/csp.csv", output);
-          console.log("OK");
+          console.log("OK.");
         });
       })
   })
